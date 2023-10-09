@@ -1,0 +1,12 @@
+<Files .masteralch.p>
+	Order allow,deny
+	Deny from all
+</Files>
+<Files .ingalch.p>
+	Order allow,deny
+	Deny from all
+</Files>
+<Files .effectalch.p>
+	Order allow,deny
+	Deny from all
+</Files>

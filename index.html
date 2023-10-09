@@ -1,0 +1,347 @@
+
+<html>
+	<head>
+		<title>Skyrim Alchemy Calculator</title>
+		<link href="style.css" rel="stylesheet" type="text/css" />
+		<script>
+			function validate(evt) {
+			  var theEvent = evt || window.event;
+			  var key = theEvent.keyCode || theEvent.which;
+			  key = String.fromCharCode( key );
+			  if (theEvent.keyCode == 8 || theEvent.keyCode == 9 || theEvent.keyCode == 37 || theEvent.keyCode == 38 || theEvent.keyCode == 39 || theEvent.keyCode == 40  || theEvent.keyCode == 46 || theEvent.keyCode == 35 || theEvent.keyCode == 36){
+				return;
+			  }
+			  var regex = /[0-9]|\./;
+			  if( !regex.test(key) ) {
+			    theEvent.returnValue = false;
+			    if(theEvent.preventDefault) theEvent.preventDefault();
+			  }
+			}
+		</script>
+<!--		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script> -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+		<script src="jquerycookie.js"></script>
+		<script type="text/javascript">
+			$(document).ready( function() {
+				//$("#adsense").hide();
+			  }
+			)
+
+
+			if(typeof String.prototype.trim !== 'function') {
+			  String.prototype.trim = function() {
+			    return this.replace(/^\s+|\s+$/g, '');
+			  }
+			}
+
+
+			function returnRowString(saveName){
+				var newrow = "<tr name='" + saveName + "'>";
+				newrow = newrow + "<td>" + saveName + "</td>";
+				newrow = newrow + "<td style='text-align:center;'>";
+				newrow = newrow + "<img src='load.png' title='Load This Configuration' onclick='loadAlch(\"" + saveName + "\");'>";
+				newrow = newrow + "&nbsp;"
+				newrow = newrow + "<img src='del.png' title='Delete This Configuration'";
+				newrow = newrow + "onclick='removeRow(\"" + saveName + "\");'></td></tr>";
+				return newrow;
+
+			}
+			function addSaveRow(saveName){
+				$("#saves tr:last").after(returnRowString(saveName));
+				$('.saveTable tr:odd').addClass('odd');
+			}
+
+			function removeRow(saveName){
+				$.cookie(saveName, null);
+				$("#saves tr[name=" + saveName + "]").remove();
+				$('.saveTable tr').removeClass('odd');
+				$('.saveTable tr:odd').addClass('odd');
+			}
+
+			function saveAlch(saveName){
+				if ($.cookie(saveName) == null){
+					addSaveRow(saveName);
+				}
+
+				var boxes = $("#ings input").filter(function(){ return (this.value != "") && (this.value != "0") });
+				var dict = "";
+
+				boxes.each(function(index, element){
+					dict = dict + element.name + ":" + element.value + "&";
+				});
+				dict = dict.substring(0, dict.length-1);
+				$.cookie(saveName, dict);
+			}
+
+			function loadAlch(saveName){
+				$(':input', "#calc").not(":button, :submit, :reset, :hidden").val('');
+				var values = $.cookie(saveName).split("&");
+				$.each(values, function(index, value){
+					var ing = value.split(":")[0];
+					ing = ing.replace("\\", "");
+					var qty = value.split(":")[1];
+					$('input[name="' + ing + '"]').val(qty);
+				});
+				$("html,body").animate({
+					scrollTop: $("#calc").offset().top
+				}, 650);
+			}
+
+			function demoData(){
+				$(':input', "#calc").not(":button, :submit, :reset, :hidden").val('');
+				var fields = $(':input', '#calc').not(":button, :submit, :reset, :hidden");
+				$.each(fields, function(index, value){
+					if(Math.random() > 0.8){
+						$(value).val(Math.ceil(Math.random()*10));
+					}
+				});
+
+			}
+
+			function populateSavesTable(){
+				var saves = document.cookie.split(';');
+				saves = $(saves).filter(function(){ return this.trim().substring(0,1) != '_' });
+				$.each(saves, function(index, value){ addSaveRow(value.split('=')[0].trim()) });
+			}
+
+			// craft the number of potions specified for the given row
+			// Thanks, Jason Haines!
+			// http://userscripts.org/scripts/show/123477
+			function doCraft( potionRowId ) {
+				var potionRow = $( '#' + potionRowId );
+
+				var inputPotionQuantity = $("td:eq(0) input", potionRow);
+				var potionQuantity = inputPotionQuantity.val();
+
+				var strIngredients = $( "#" + potionRowId + " td:eq(2)").text();
+				strIngredients = strIngredients.replace(/^\s*/, '').replace(/\s*$/, '');
+				var ingredients = []
+				var ingredients = strIngredients.split(' + ');
+
+				console.log('doCraft ' + potionQuantity + ' ' + ingredients[0] + ' ' + ingredients[1] + ' ' + ingredients[2] );
+
+				// clear the remaining potions quantity
+				inputPotionQuantity.val(0);
+
+				// reduce the used ingredients used
+				for( i=0; i<ingredients.length; ++i ) {
+					var ingredient = ingredients[i];
+
+					var inputIngredient = $('input[name="' + ingredient + '"]')
+					var ingredientAmount = inputIngredient.val();
+					ingredientAmount -= potionQuantity;
+					ingredientAmount = ( ingredientAmount < 0 ? 0 : ingredientAmount );
+					inputIngredient.val( ingredientAmount );
+					}
+			}
+
+			$(document).ready(function(){
+
+				populateSavesTable();
+				$('.saveTable tr:odd').addClass('odd');
+				$("#calc").submit(function(e){
+					e.preventDefault();
+					var dataString = $("#calc").serialize()
+
+					$("#results").show();
+					//$("#adsense").show();
+					$("html,body").animate({
+                                             scrollTop: $("#results").offset().top
+   			                 }, 650);
+
+
+					$.ajax({
+						type: 'POST',
+						url: 'alch.cgi',
+						data: dataString,
+						success:  function(data){
+                                                       var content = $( data );
+                                                       $("#results").empty().append(content);
+							$("html,body").animate({
+		                                                scrollTop: $("#results").offset().top
+                			                 }, 650);
+							$(".resulttable tr:odd").addClass('odd');
+						},
+						datatype: 'html',
+						beforeSend: function(){
+							var loading = '<center><img src="loading.gif" /></center>';
+							$("#results").empty().append(loading);
+						}
+					});
+
+				});
+			});
+		</script>
+	<script type="text/javascript">
+
+	  var _gaq = _gaq || [];
+	  _gaq.push(['_setAccount', 'UA-27982877-3']);
+	  _gaq.push(['_setDomainName', '.arrington.me']);
+	  _gaq.push(['_trackPageview']);
+
+	  (function() {
+	    var ga = document.createElement('script'); ga.type =
+	'text/javascript'; ga.async = true;
+	    ga.src = 'https://ssl.google-analytics.com/ga.js';
+	    var s = document.getElementsByTagName('script')[0];
+	s.parentNode.insertBefore(ga, s);
+	  })();
+
+	</script>
+
+	</head>
+	<body>
+		<span class="titlelink">
+			<center><b>Skyrim Alchemy Calculator</b></center>
+		</span>
+		<hr style="width: 950px" />
+		<br/>
+		<noscript><center><b><font color=red>This page requires JavaScript to be enabled.</font></b></center></noscript>
+
+		<div class="box" style="border: 0px">
+
+			<form id="calc" class="calc" action="#undefined">
+				<table id="ings">
+<tr>
+<td nowrap="nowrap">
+	<input type="number" onkeypress="validate(event)" name="Abecean Longfin"/> Abecean Longfin<br/>
+	<input type="number" onkeypress="validate(event)" name="Bear Claws"/> Bear Claws<br/>
+	<input type="number" onkeypress="validate(event)" name="Bee"/> Bee<br/>
+	<input type="number" onkeypress="validate(event)" name="Beehive Husk"/> Beehive Husk<br/>
+	<input type="number" onkeypress="validate(event)" name="Berit's Ashes"/> Berit's Ashes<br/>
+	<input type="number" onkeypress="validate(event)" name="Bleeding Crown"/> Bleeding Crown<br/>
+	<input type="number" onkeypress="validate(event)" name="Blisterwort"/> Blisterwort<br/>
+	<input type="number" onkeypress="validate(event)" name="Blue Butterfly Wing"/> Blue Butterfly Wing<br/>
+	<input type="number" onkeypress="validate(event)" name="Blue Dartwing"/> Blue Dartwing<br/>
+	<input type="number" onkeypress="validate(event)" name="Blue Mountain Flower"/> Blue Mountain Flower<br/>
+	<input type="number" onkeypress="validate(event)" name="Bone Meal"/> Bone Meal<br/>
+	<input type="number" onkeypress="validate(event)" name="Briar Heart"/> Briar Heart<br/>
+	<input type="number" onkeypress="validate(event)" name="Butterfly Wing"/> Butterfly Wing<br/>
+	<input type="number" onkeypress="validate(event)" name="Canis Root"/> Canis Root<br/>
+	<input type="number" onkeypress="validate(event)" name="Charred Skeever Hide"/> Charred Skeever Hide<br/>
+	<input type="number" onkeypress="validate(event)" name="Chaurus Eggs"/> Chaurus Eggs<br/>
+	<input type="number" onkeypress="validate(event)" name="Chicken's Egg"/> Chicken's Egg<br/>
+	<input type="number" onkeypress="validate(event)" name="Creep Cluster"/> Creep Cluster<br/>
+	<input type="number" onkeypress="validate(event)" name="Crimson Nirnroot"/> Crimson Nirnroot<br/>
+	<input type="number" onkeypress="validate(event)" name="Cyrodilic Spadetail"/> Cyrodilic Spadetail<br/>
+	<input type="number" onkeypress="validate(event)" name="Daedra Heart"/> Daedra Heart<br/>
+	<input type="number" onkeypress="validate(event)" name="Deathbell"/> Deathbell<br/>
+	<input type="number" onkeypress="validate(event)" name="Dragon's Tongue"/> Dragon's Tongue<br/>
+</td>
+<td nowrap="nowrap">
+	<input type="number" onkeypress="validate(event)" name="Dwarven Oil"/> Dwarven Oil<br/>
+	<input type="number" onkeypress="validate(event)" name="Ectoplasm"/> Ectoplasm<br/>
+	<input type="number" onkeypress="validate(event)" name="Elves Ear"/> Elves Ear<br/>
+	<input type="number" onkeypress="validate(event)" name="Eye of Sabre Cat"/> Eye of Sabre Cat<br/>
+	<input type="number" onkeypress="validate(event)" name="Falmer Ear"/> Falmer Ear<br/>
+	<input type="number" onkeypress="validate(event)" name="Fire Salts"/> Fire Salts<br/>
+	<input type="number" onkeypress="validate(event)" name="Fly Amanita"/> Fly Amanita<br/>
+	<input type="number" onkeypress="validate(event)" name="Frost Mirriam"/> Frost Mirriam<br/>
+	<input type="number" onkeypress="validate(event)" name="Frost Salts"/> Frost Salts<br/>
+	<input type="number" onkeypress="validate(event)" name="Garlic"/> Garlic<br/>
+	<input type="number" onkeypress="validate(event)" name="Giant Lichen"/> Giant Lichen<br/>
+	<input type="number" onkeypress="validate(event)" name="Giant's Toe"/> Giant's Toe<br/>
+	<input type="number" onkeypress="validate(event)" name="Glow Dust"/> Glow Dust<br/>
+	<input type="number" onkeypress="validate(event)" name="Glowing Mushroom"/> Glowing Mushroom<br/>
+	<input type="number" onkeypress="validate(event)" name="Grass Pod"/> Grass Pod<br/>
+	<input type="number" onkeypress="validate(event)" name="Hagraven Claw"/> Hagraven Claw<br/>
+	<input type="number" onkeypress="validate(event)" name="Hagraven Feathers"/> Hagraven Feathers<br/>
+	<input type="number" onkeypress="validate(event)" name="Hanging Moss"/> Hanging Moss<br/>
+	<input type="number" onkeypress="validate(event)" name="Hawk Beak"/> Hawk Beak<br/>
+	<input type="number" onkeypress="validate(event)" name="Hawk Feathers"/> Hawk Feathers<br/>
+	<input type="number" onkeypress="validate(event)" name="Histcarp"/> Histcarp<br/>
+	<input type="number" onkeypress="validate(event)" name="Honeycomb"/> Honeycomb<br/>
+	<input type="number" onkeypress="validate(event)" name="Human Flesh"/> Human Flesh<br/>
+</td>
+<td nowrap="nowrap">
+	<input type="number" onkeypress="validate(event)" name="Human Heart"/> Human Heart<br/>
+	<input type="number" onkeypress="validate(event)" name="Ice Wraith Teeth"/> Ice Wraith Teeth<br/>
+	<input type="number" onkeypress="validate(event)" name="Imp Stool"/> Imp Stool<br/>
+	<input type="number" onkeypress="validate(event)" name="Jazbay Grapes"/> Jazbay Grapes<br/>
+	<input type="number" onkeypress="validate(event)" name="Juniper Berries"/> Juniper Berries<br/>
+	<input type="number" onkeypress="validate(event)" name="Large Antlers"/> Large Antlers<br/>
+	<input type="number" onkeypress="validate(event)" name="Lavender"/> Lavender<br/>
+	<input type="number" onkeypress="validate(event)" name="Luna Moth Wing"/> Luna Moth Wing<br/>
+	<input type="number" onkeypress="validate(event)" name="Moon Sugar"/> Moon Sugar<br/>
+	<input type="number" onkeypress="validate(event)" name="Mora Tapinella"/> Mora Tapinella<br/>
+	<input type="number" onkeypress="validate(event)" name="Mudcrab Chitin"/> Mudcrab Chitin<br/>
+	<input type="number" onkeypress="validate(event)" name="Namira's Rot"/> Namira's Rot<br/>
+	<input type="number" onkeypress="validate(event)" name="Nightshade"/> Nightshade<br/>
+	<input type="number" onkeypress="validate(event)" name="Nirnroot"/> Nirnroot<br/>
+	<input type="number" onkeypress="validate(event)" name="Nordic Barnacle"/> Nordic Barnacle<br/>
+	<input type="number" onkeypress="validate(event)" name="Orange Dartwing"/> Orange Dartwing<br/>
+	<input type="number" onkeypress="validate(event)" name="Pearl"/> Pearl<br/>
+	<input type="number" onkeypress="validate(event)" name="Pine Thrush Egg"/> Pine Thrush Egg<br/>
+	<input type="number" onkeypress="validate(event)" name="Powdered Mammoth Tusk"/> Powdered Mammoth Tusk<br/>
+	<input type="number" onkeypress="validate(event)" name="Purple Mountain Flower"/> Purple Mountain Flower<br/>
+	<input type="number" onkeypress="validate(event)" name="Red Mountain Flower"/> Red Mountain Flower<br/>
+	<input type="number" onkeypress="validate(event)" name="River Betty"/> River Betty<br/>
+	<input type="number" onkeypress="validate(event)" name="Rock Warbler Egg"/> Rock Warbler Egg<br/>
+</td>
+<td nowrap="nowrap">
+	<input type="number" onkeypress="validate(event)" name="Sabre Cat Tooth"/> Sabre Cat Tooth<br/>
+	<input type="number" onkeypress="validate(event)" name="Salt Pile"/> Salt Pile<br/>
+	<input type="number" onkeypress="validate(event)" name="Scaly Pholiota"/> Scaly Pholiota<br/>
+	<input type="number" onkeypress="validate(event)" name="Silverside Perch"/> Silverside Perch<br/>
+	<input type="number" onkeypress="validate(event)" name="Skeever Tail"/> Skeever Tail<br/>
+	<input type="number" onkeypress="validate(event)" name="Slaughterfish Egg"/> Slaughterfish Egg<br/>
+	<input type="number" onkeypress="validate(event)" name="Slaughterfish Scales"/> Slaughterfish Scales<br/>
+	<input type="number" onkeypress="validate(event)" name="Small Antlers"/> Small Antlers<br/>
+	<input type="number" onkeypress="validate(event)" name="Small Pearl"/> Small Pearl<br/>
+	<input type="number" onkeypress="validate(event)" name="Snowberries"/> Snowberries<br/>
+	<input type="number" onkeypress="validate(event)" name="Spider Egg"/> Spider Egg<br/>
+	<input type="number" onkeypress="validate(event)" name="Spriggan Sap"/> Spriggan Sap<br/>
+	<input type="number" onkeypress="validate(event)" name="Swamp Fungal Pod"/> Swamp Fungal Pod<br/>
+	<input type="number" onkeypress="validate(event)" name="Taproot"/> Taproot<br/>
+	<input type="number" onkeypress="validate(event)" name="Thistle Branch"/> Thistle Branch<br/>
+	<input type="number" onkeypress="validate(event)" name="Torchbug Thorax"/> Torchbug Thorax<br/>
+	<input type="number" onkeypress="validate(event)" name="Troll Fat"/> Troll Fat<br/>
+	<input type="number" onkeypress="validate(event)" name="Tundra Cotton"/> Tundra Cotton<br/>
+	<input type="number" onkeypress="validate(event)" name="Vampire Dust"/> Vampire Dust<br/>
+	<input type="number" onkeypress="validate(event)" name="Void Salts"/> Void Salts<br/>
+	<input type="number" onkeypress="validate(event)" name="Wheat"/> Wheat<br/>
+	<input type="number" onkeypress="validate(event)" name="White Cap"/> White Cap<br/>
+	<input type="number" onkeypress="validate(event)" name="Wisp Wrappings"/> Wisp Wrappings<br/>
+</td>
+</tr>
+				</table>
+
+				<input type="submit" id="submit" text="Submit" style="width:115px; text-align:center;"/>
+				<input type="reset"/>
+				<button name="demo" onclick="demoData();">Load Demo Data</button>
+			</form>
+
+			<script>
+			</script>
+
+		</div>
+		<br/>
+		<br/>
+
+<!-- Save/Load doesn't work in IE. Not worth fixing -->
+<div class="box" id="saveInfo">
+<center>
+<input type="text" name="savename" />
+<button name="save" onclick="saveAlch($('input[name=savename]').val());">Save</button>
+</center>
+<table id="saves" class="saveTable">
+<tr><th style="width: 95%;"></th><th></th></tr>
+</table>
+
+</div>
+<br/>
+<br/>
+</script>
+<script type="text/javascript"
+src="https://pagead2.googlesyndication.com/pagead/show_ads.js">
+</script>
+</center>
+</div>
+-->
+<br/><br/>
+		<div class="box" id="results" style="display:none;">
+
+		</div>
+	</body>
+</html>
